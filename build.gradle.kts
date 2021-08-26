@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "1.5.10"
+    groovy
     application
 }
 
@@ -19,10 +20,21 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.25")
     implementation("org.slf4j:slf4j-log4j12:1.7.25")
     implementation("io.github.microutils:kotlin-logging:1.12.5")
+    implementation("com.google.code.gson:gson:2.8.8")
+
+    implementation("org.codehaus.groovy:groovy:3.0.8")
+    testImplementation("org.spockframework:spock-bom:2.0-groovy-3.0")
+    testImplementation("org.spockframework:spock-core")
+    testImplementation("org.hamcrest:hamcrest-core:2.2")
+    testImplementation("com.athaydes:spock-reports:2.0-groovy-3.0")
 }
 
 tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "11"
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 //Set the executable class
