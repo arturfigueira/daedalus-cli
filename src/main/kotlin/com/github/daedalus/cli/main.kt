@@ -1,3 +1,4 @@
+import com.github.daedalus.cli.mapping.json.JsonMappingsProvider
 import kotlinx.cli.*
 import mu.KotlinLogging
 
@@ -24,5 +25,7 @@ fun main(args: Array<String>) {
     logger.debug { "Input: $input" }
     logger.debug { "Mappings: $mappings" }
     logger.debug { "Elastic: $elastic" }
+
+    val mappingsProvider = JsonMappingsProvider(mappings)
 }
 
