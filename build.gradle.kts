@@ -4,6 +4,8 @@ plugins {
     kotlin("jvm") version "1.5.10"
     groovy
     application
+    jacoco
+    id("org.sonarqube") version "3.3"
 }
 
 group = "com.github.daedalus"
@@ -12,6 +14,18 @@ version = "1.0.0-SNAPSHOT"
 repositories {
     mavenLocal()
     mavenCentral()
+}
+
+sonarqube {
+    properties {
+        property("sonar.projectKey", "arturfigueira_daedalus-cli")
+        property("sonar.organization", "arturfigueira")
+        property("sonar.host.url", "https://sonarcloud.io")
+    }
+}
+
+jacoco {
+    toolVersion = "0.8.7"
 }
 
 dependencies {
@@ -33,8 +47,18 @@ tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "11"
 }
 
-tasks.withType<Test> {
+tasks.test{
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        csv.required.set(false)
+        html.required.set(false)
+    }// tests are required to run before generating the report
 }
 
 //Set the executable class
