@@ -5,6 +5,7 @@ plugins {
     groovy
     application
     jacoco
+    id("org.sonarqube") version "3.3"
 }
 
 group = "com.github.daedalus"
@@ -13,6 +14,14 @@ version = "1.0.0-SNAPSHOT"
 repositories {
     mavenLocal()
     mavenCentral()
+}
+
+sonarqube {
+    properties {
+        property("sonar.projectKey", "arturfigueira_daedalus-cli")
+        property("sonar.organization", "arturfigueira")
+        property("sonar.host.url", "https://sonarcloud.io")
+    }
 }
 
 jacoco {
