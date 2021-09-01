@@ -41,6 +41,12 @@ dependencies {
     testImplementation("org.spockframework:spock-core")
     testImplementation("org.hamcrest:hamcrest-core:2.2")
     testImplementation("com.athaydes:spock-reports:2.0-groovy-3.0")
+
+    implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.13.1")
+    implementation("com.sksamuel.hoplite:hoplite-core:1.4.7")
+    implementation("com.sksamuel.hoplite:hoplite-yaml:1.4.7")
+    implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.4")
+    implementation("com.google.guava:guava:30.1.1-jre")
 }
 
 tasks.withType<KotlinCompile>() {
