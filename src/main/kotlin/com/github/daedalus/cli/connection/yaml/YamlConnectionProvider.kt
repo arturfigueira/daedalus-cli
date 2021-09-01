@@ -1,5 +1,7 @@
-package com.github.daedalus.cli.connection
+package com.github.daedalus.cli.connection.yaml
 
+import com.github.daedalus.cli.connection.ConnectionException
+import com.github.daedalus.cli.connection.ConnectionProvider
 import com.google.common.collect.ImmutableList
 import com.sksamuel.hoplite.ConfigLoader
 import org.apache.http.HttpHost
@@ -47,10 +49,8 @@ class YamlConnectionProvider(configFilePath: String) : ConnectionProvider {
                     httpAsyncClientBuilder
                         .setDefaultCredentialsProvider(credentialsProvider)
                 }
-                return RestHighLevelClient(
-                    RestClient.builder(*httpHosts.toTypedArray())
-                        .setHttpClientConfigCallback(setupCallback)
-                )
+
+                return setupClient(httpHosts, setupCallback)
             }
 
             is Authorization.PkcsAuthorization -> {
@@ -74,10 +74,7 @@ class YamlConnectionProvider(configFilePath: String) : ConnectionProvider {
                         )
                     }
 
-                return RestHighLevelClient(
-                    RestClient.builder(*httpHosts.toTypedArray())
-                        .setHttpClientConfigCallback(setupCallback)
-                )
+                return setupClient(httpHosts, setupCallback)
             }
 
             is Authorization.PemAuthorization -> {
@@ -106,55 +103,16 @@ class YamlConnectionProvider(configFilePath: String) : ConnectionProvider {
                         )
                     }
 
-                return RestHighLevelClient(
-                    RestClient.builder(*httpHosts.toTypedArray())
-                        .setHttpClientConfigCallback(setupCallBack)
-                )
+                return setupClient(httpHosts, setupCallBack)
             }
         }
     }
 
-    data class Instance(val host: String, val port: Int)
-
-    sealed class Authorization {
-        data class BasicAuthorization(val user: String, val password: String) : Authorization()
-
-        data class PkcsAuthorization(
-            val trustStore: String,
-            val password: String,
-            val keyStore: String?
-        ) :
-            Authorization()
-
-        data class PemAuthorization(val caCertificate: String) : Authorization()
-    }
-
-    enum class Scheme(vararg authSchemes: Class<out Authorization>) {
-        HTTP(Authorization.BasicAuthorization::class.java),
-        HTTPS(
-            Authorization.PkcsAuthorization::class.java,
-            Authorization.PemAuthorization::class.java
-        );
-
-        private val authClazzs: List<Class<out Authorization>> = authSchemes.asList();
-
-        fun isAllowed(obj: Any?) = authClazzs.stream().anyMatch { it.isInstance(obj) }
-
-        fun asParameter() = this.name.lowercase()
-
-        companion object Object {
-            fun parse(name: String): Scheme {
-                return values().first { dt -> dt.name.equals(name, true) }
-            }
-        }
-    }
-
-    data class ElasticSearch(
-        private val scheme: String,
-        val authorization: Authorization,
-        private val instances: List<Instance>
-    ) {
-        fun getInstances(): List<Instance> = ImmutableList.copyOf(this.instances)
-        fun getScheme(): Scheme = Scheme.parse(this.scheme)
-    }
+    private fun setupClient(
+        httpHosts: List<HttpHost>,
+        setupCallback: (HttpAsyncClientBuilder) -> HttpAsyncClientBuilder
+    ) = RestHighLevelClient(
+        RestClient.builder(*httpHosts.toTypedArray())
+            .setHttpClientConfigCallback(setupCallback)
+    )
 }
