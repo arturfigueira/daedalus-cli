@@ -2,7 +2,6 @@ package com.github.daedalus.cli.connection.yaml
 
 import com.github.daedalus.cli.connection.ConnectionException
 import com.github.daedalus.cli.connection.ConnectionProvider
-import com.google.common.collect.ImmutableList
 import com.sksamuel.hoplite.ConfigLoader
 import org.apache.http.HttpHost
 import org.apache.http.auth.AuthScope
@@ -23,96 +22,118 @@ import javax.net.ssl.SSLContext
 
 
 class YamlConnectionProvider(configFilePath: String) : ConnectionProvider {
-    private val config: ElasticSearch = ConfigLoader().loadConfigOrThrow(configFilePath)
+  private val config: ElasticSearchConfig = ConfigLoader().loadConfigOrThrow(configFilePath)
 
-    override fun provide(): RestHighLevelClient {
-        val scheme = config.getScheme()
-        scheme.isAllowed(config.authorization)
-                || throw ConnectionException("Incompatible Authentication / Scheme ")
+  override fun provide(): RestHighLevelClient {
+    val scheme = config.getScheme()
 
-        val httpHosts = config.getInstances().map { instance ->
-            HttpHost(instance.host, instance.port, scheme.asParameter())
-        }
+    scheme.isAllowed(config.authorization)
+        || throw ConnectionException("Incompatible Authentication / Scheme ")
 
-        when (config.authorization) {
-            is Authorization.BasicAuthorization -> {
-                val credentialsProvider: CredentialsProvider = BasicCredentialsProvider()
-                credentialsProvider.setCredentials(
-                    AuthScope.ANY,
-                    UsernamePasswordCredentials(
-                        config.authorization.user,
-                        config.authorization.password
-                    )
-                )
-
-                val setupCallback = { httpAsyncClientBuilder: HttpAsyncClientBuilder ->
-                    httpAsyncClientBuilder
-                        .setDefaultCredentialsProvider(credentialsProvider)
-                }
-
-                return setupClient(httpHosts, setupCallback)
-            }
-
-            is Authorization.PkcsAuthorization -> {
-                val trustStorePath = Paths.get(config.authorization.trustStore)
-                val truststore = KeyStore.getInstance("pkcs12")
-
-                Files.newInputStream(trustStorePath).use { `is` ->
-                    truststore.load(
-                        `is`,
-                        config.authorization.password.toCharArray()
-                    )
-                }
-                val sslBuilder: SSLContextBuilder = SSLContexts.custom()
-                    .loadTrustMaterial(truststore, null)
-
-                val sslContext = sslBuilder.build()
-                val setupCallback: (httpClientBuilder: HttpAsyncClientBuilder) -> HttpAsyncClientBuilder =
-                    { httpClientBuilder ->
-                        httpClientBuilder.setSSLContext(
-                            sslContext
-                        )
-                    }
-
-                return setupClient(httpHosts, setupCallback)
-            }
-
-            is Authorization.PemAuthorization -> {
-                val caCertificatePath = Paths.get(config.authorization.caCertificate)
-
-                val factory = CertificateFactory.getInstance("X.509")
-
-                var trustedCa: Certificate?
-
-                Files.newInputStream(caCertificatePath).use { `is` ->
-                    trustedCa = factory.generateCertificate(`is`)
-                }
-
-                val trustStore = KeyStore.getInstance("pkcs12")
-                trustStore.load(null, null)
-                trustStore.setCertificateEntry("ca", trustedCa)
-
-                val sslContextBuilder = SSLContexts.custom()
-                    .loadTrustMaterial(trustStore, null)
-                val sslContext: SSLContext = sslContextBuilder.build()
-
-                val setupCallBack: (httpClientBuilder: HttpAsyncClientBuilder) -> HttpAsyncClientBuilder =
-                    { httpClientBuilder ->
-                        httpClientBuilder.setSSLContext(
-                            sslContext
-                        )
-                    }
-
-                return setupClient(httpHosts, setupCallBack)
-            }
-        }
+    val httpHosts = config.getInstances().map { instance ->
+      HttpHost(instance.host, instance.port, scheme.asParameter())
     }
 
-    private fun setupClient(
-        httpHosts: List<HttpHost>,
-        setupCallback: (HttpAsyncClientBuilder) -> HttpAsyncClientBuilder
-    ) = RestHighLevelClient(
-        RestClient.builder(*httpHosts.toTypedArray())
-            .setHttpClientConfigCallback(setupCallback)
+    return when (config.authorization) {
+      is Authorization.BasicAuthorization -> provideBasicClient(config.authorization, httpHosts)
+
+      is Authorization.PkcsAuthorization -> providePkcsClient(config.authorization, httpHosts)
+
+      is Authorization.PemAuthorization -> providePemClient(config.authorization, httpHosts)
+    }
+  }
+
+  private fun providePemClient(
+    authorization: Authorization.PemAuthorization,
+    httpHosts: List<HttpHost>
+  ): RestHighLevelClient {
+    val caCertificatePath = Paths.get(authorization.caCertificate)
+
+    val factory = CertificateFactory.getInstance("X.509")
+
+    var trustedCa: Certificate?
+
+    Files.newInputStream(caCertificatePath).use { `is` ->
+      trustedCa = factory.generateCertificate(`is`)
+    }
+
+    val trustStore = KeyStore.getInstance("pkcs12")
+    trustStore.load(null, null)
+    trustStore.setCertificateEntry("ca", trustedCa)
+
+    val sslContextBuilder = SSLContexts.custom().loadTrustMaterial(trustStore, null)
+    val sslContext: SSLContext = sslContextBuilder.build()
+
+    val setupCallBack: (httpClientBuilder: HttpAsyncClientBuilder) -> HttpAsyncClientBuilder =
+      { httpClientBuilder ->
+        httpClientBuilder.setSSLContext(
+          sslContext
+        )
+      }
+
+    return setupClient(httpHosts, setupCallBack)
+  }
+
+  private fun providePkcsClient(
+    authorization: Authorization.PkcsAuthorization,
+    httpHosts: List<HttpHost>
+  ): RestHighLevelClient {
+    val trustStorePath = Paths.get(authorization.trustStore)
+
+    val trustStore = KeyStore.getInstance("pkcs12")
+
+    Files.newInputStream(trustStorePath).use { `is` ->
+      trustStore.load(`is`, authorization.trustStorePassword.toCharArray())
+    }
+
+    var sslBuilder: SSLContextBuilder = SSLContexts.custom()
+      .loadTrustMaterial(trustStore, null)
+
+
+    authorization.keyStore?.let {
+      val keyStorePath = Paths.get(it)
+      val keyStore = KeyStore.getInstance("pkcs12")
+      val keyStorePassword = authorization.trustStorePassword.toCharArray()
+
+      Files.newInputStream(keyStorePath).use { `is` ->
+        keyStore.load(`is`, keyStorePassword)
+      }
+
+      sslBuilder = SSLContexts.custom()
+        .loadTrustMaterial(trustStore, null)
+        .loadKeyMaterial(keyStore, keyStorePassword)
+    }
+
+    val sslContext = sslBuilder.build()
+    val setupCallback: (httpClientBuilder: HttpAsyncClientBuilder) -> HttpAsyncClientBuilder =
+      { httpClientBuilder -> httpClientBuilder.setSSLContext(sslContext) }
+
+    return setupClient(httpHosts, setupCallback)
+  }
+
+  private fun provideBasicClient(
+    authorization: Authorization.BasicAuthorization,
+    httpHosts: List<HttpHost>
+  ): RestHighLevelClient {
+    val credentialsProvider: CredentialsProvider = BasicCredentialsProvider()
+    val usernamePasswordCredentials = UsernamePasswordCredentials(
+      authorization.user,
+      authorization.password
     )
+
+    credentialsProvider.setCredentials(AuthScope.ANY, usernamePasswordCredentials)
+
+    val setupCallback = { httpAsyncClientBuilder: HttpAsyncClientBuilder ->
+      httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider)
+    }
+
+    return setupClient(httpHosts, setupCallback)
+  }
+
+  private fun setupClient(
+    httpHosts: List<HttpHost>,
+    setupCallback: (HttpAsyncClientBuilder) -> HttpAsyncClientBuilder
+  ) = RestHighLevelClient(
+    RestClient.builder(*httpHosts.toTypedArray()).setHttpClientConfigCallback(setupCallback)
+  )
 }
