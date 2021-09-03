@@ -1,0 +1,6 @@
+scheme: https
+authorization:
+  caCertificate: cacert.crt
+instances:
+  - host: localhost
+    port: 9200

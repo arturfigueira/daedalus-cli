@@ -1,0 +1,7 @@
+scheme: https
+authorization:
+  user: elasticsearch
+  password: 123456
+instances:
+  - host: localhost
+    port: 9200
