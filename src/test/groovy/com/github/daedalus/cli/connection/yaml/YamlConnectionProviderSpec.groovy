@@ -43,6 +43,7 @@ class YamlConnectionProviderSpec extends Specification {
         label                    | configPath
         "Basic authentication"   | "$resourcePath/basic-elastic.yml"
         "CA Cert authentication" | "$resourcePath/cacert-elastic.yml"
+        "PKCS authentication"    | "$resourcePath/pkcs-elastic.yml"
     }
 
     def "Should configure multiple hosts"() {

@@ -78,10 +78,9 @@ class YamlConnectionProvider(configFilePath: String) : ConnectionProvider {
     authorization: Authorization.PkcsAuthorization,
     httpHosts: List<HttpHost>
   ): RestHighLevelClient {
-    val trustStorePath = Paths.get(authorization.trustStore)
+    val trustStorePath = resolveResourcePath(authorization.trustStore)
 
     val trustStore = KeyStore.getInstance("pkcs12")
-
     Files.newInputStream(trustStorePath).use { `is` ->
       trustStore.load(`is`, authorization.trustStorePassword.toCharArray())
     }
@@ -91,7 +90,7 @@ class YamlConnectionProvider(configFilePath: String) : ConnectionProvider {
 
 
     authorization.keyStore?.let {
-      val keyStorePath = Paths.get(it)
+      val keyStorePath = resolveResourcePath(it)
       val keyStore = KeyStore.getInstance("pkcs12")
       val keyStorePassword = authorization.trustStorePassword.toCharArray()
 

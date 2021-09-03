@@ -1,0 +1,7 @@
+scheme: https
+authorization:
+  trustStore: client.p12
+  trustStorePassword: password
+instances:
+  - host: localhost
+    port: 9200
