@@ -92,7 +92,7 @@ class YamlConnectionProvider(configFilePath: String) : ConnectionProvider {
     authorization.keyStore?.let {
       val keyStorePath = resolveResourcePath(it)
       val keyStore = KeyStore.getInstance("pkcs12")
-      val keyStorePassword = authorization.trustStorePassword.toCharArray()
+      val keyStorePassword = authorization.keyStorePassword?.toCharArray()
 
       Files.newInputStream(keyStorePath).use { `is` ->
         keyStore.load(`is`, keyStorePassword)
